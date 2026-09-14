@@ -515,7 +515,7 @@ const v14OldOpenLead=openLead;openLead=async function(id){activeLeadTab='overvie
 </style>
 <script id="solarflow-v15-script">
 let v15CalendarMode='upcoming';
-function v15IsLocked(l){return !!(l?.delete_locked||l?.measurement_locked_at||l?.visit_date||['measurement','measurement_done','estimate_ready','installation','completed','paid'].includes(l?.status))}
+function v15IsLocked(l){return false}
 function v15Action(l){
  if(l.status==='new')return {label:'📞 Отметить: связались',fn:"updateStatus('contacted')"};
  if(l.status==='contacted'&&!l.visit_date)return {label:'📐 Назначить замер',fn:"openScheduleEditor('measurement')"};
@@ -533,28 +533,28 @@ function v15SimplePlan(l){return `<div class="v15-plan">
 renderLeadCRM=function(){
  const l=selectedLead;if(!l)return;const d=l._details||{photos:[],notes:[],estimate:[],expenses:[],equipment:[],payments:[],admins:[]};
  const phone=(l.client?.phone||'').replace(/[^\d+]/g,'');const map=l.address?`https://maps.google.com/?q=${encodeURIComponent((l.client?.city||'')+' '+l.address)}`:'';
- const est=v14Estimate(d),exp=v14Expenses(d),paid=v14Paid(d),deal=Number(l.deal_amount||est||0),debt=Math.max(0,deal-paid);const next=v15Action(l);const locked=v15IsLocked(l);
+ const est=v14Estimate(d),exp=v14Expenses(d),paid=v14Paid(d),deal=Number(l.deal_amount||est||0),debt=Math.max(0,deal-paid);const next=v15Action(l);const locked=false;
  const assigned=(d.admins||[]).map(a=>`<option value="${a.id}" ${l.assigned_admin_id===a.id?'selected':''}>${esc(a.full_name||'Администратор')}</option>`).join('');
  document.getElementById('sheetContent').innerHTML=`
  <div class="sheet-head"><div><div class="sheet-no">ЗАЯВКА ${leadNumber(l)}</div><h3>${esc(l.client?.full_name||'Клиент')}</h3><div class="meta">${esc(l.client?.city||'—')} · ${esc(l.client?.phone||'')}</div></div><span class="badge ${badgeClass(l.status)}">${esc(l.status_label||V14_STATUS_LABEL[l.status]||l.status||'—')}</span></div>
  <div class="sheet-actions"><button class="act primary" onclick="location.href='tel:${phone}'">📞 Позвонить</button>${l.client?.id?`<button class="act secondary" onclick="closeSheet();setView('chat');openChat('${l.client.id}')">💬 Чат</button>`:''}</div>
  ${next?`<div class="v15-next"><small>Следующий шаг</small><b>${esc(v14NextAction(l))}</b><button onclick="${next.fn}">${next.label}</button></div>`:''}
  <div class="v15-work-card"><h4>📅 План работ</h4>${v15SimplePlan(l)}</div>
- ${locked?`<div class="v15-lock">🔒 <div><b>Заявка защищена от удаления.</b><br>После первого назначения замера история объекта сохраняется в CRM.</div></div>`:''}
+ 
  <div class="crm-section"><h4>📋 Клиент и объект</h4><div class="info-grid"><div class="info-box"><small>Мощность</small><b>${l.desired_power_kw?esc(l.desired_power_kw)+' кВт':'—'}</b></div><div class="info-box"><small>Система</small><b>${esc(l.system_type||l.object_type||'—')}</b></div><div class="info-box full"><small>Адрес</small><b>${esc(l.address||'—')}</b></div>${l.comment?`<div class="info-box full"><small>Комментарий</small><b>${esc(l.comment)}</b></div>`:''}</div>${map?`<button class="crm-btn" onclick="window.open('${map}','_blank')">📍 Маршрут</button>`:''}</div>
  <div class="crm-section"><h4>👤 Ответственный</h4><select id="assignAdmin" class="crm-input" onchange="assignAdmin(this.value)"><option value="">Не назначен</option>${assigned}</select></div>
  <div class="lead-tabs"><button class="lead-tab active" data-tab="overview" onclick="switchLeadTab('overview')">Фото</button><button class="lead-tab" data-tab="estimate" onclick="switchLeadTab('estimate')">Смета</button><button class="lead-tab" data-tab="finance" onclick="switchLeadTab('finance')">Финансы</button><button class="lead-tab" data-tab="history" onclick="switchLeadTab('history')">Ещё</button></div>
  <div class="lead-tab-panel active" data-panel="overview"><div class="crm-section"><h4>📸 Фото объекта</h4><div id="leadPhotos" class="photo-grid">${(d.photos||[]).map((p,i)=>`<div><img id="leadPhoto${i}" onclick="openPhotoViewer(this.src)" alt="${esc(p.photo_type||'Фото')}"><small>${esc(photoLabel(p.photo_type))}</small></div>`).join('')||'<div class="muted-note">Фото пока нет.</div>'}</div></div></div>
  <div class="lead-tab-panel" data-panel="estimate"><div class="crm-section"><h4>🧾 Смета</h4>${(d.estimate||[]).map(x=>`<div class="v14-list-row"><span class="v14-dot gold"></span><div class="grow"><b>${esc(x.name)}</b><small>${x.qty} × ${money(x.unit_price)} · ${money(Number(x.qty)*Number(x.unit_price))}</small></div><button class="mini-action" onclick="deleteDetail('estimate','${x.id}')">×</button></div>`).join('')||'<div class="muted-note">Пока ни одной позиции.</div>'}<div class="finance-stat" style="margin-top:10px"><small>Итого</small><b>${money(est)}</b></div><div class="quick-row" style="margin-top:10px"><button class="crm-btn gold" onclick="addEstimateItem()">+ Позиция</button><button class="crm-btn" onclick="printProposal()">📄 КП / PDF</button></div></div></div>
  <div class="lead-tab-panel" data-panel="finance"><div class="finance-hero"><div class="finance-stat"><small>Стоимость</small><b>${money(deal)}</b></div><div class="finance-stat debt"><small>Остаток</small><b>${money(debt)}</b></div><div class="finance-stat"><small>Получено</small><b>${money(paid||l.prepayment)}</b></div><div class="finance-stat profit"><small>Расходы</small><b>${money(exp)}</b></div></div><div class="quick-row"><button class="crm-btn gold" onclick="editFinance()">Изменить сумму</button><button class="crm-btn green" onclick="addPayment()">+ Оплата</button></div></div>
- <div class="lead-tab-panel" data-panel="history"><div class="crm-section"><h4>📝 Заметка</h4><textarea id="internalNote" class="crm-input" rows="3" placeholder="Клиент этого не видит">${esc(l.internal_note||'')}</textarea><button class="crm-btn" onclick="saveInternalNote()">Сохранить</button><button class="crm-btn" onclick="addNote()">+ Запись в историю</button></div><div class="crm-section"><h4>📦 Оборудование</h4>${(d.equipment||[]).map(x=>`<div class="v14-list-row"><div class="grow"><b>${esc(x.name)} × ${x.qty}</b><small>${x.status==='bought'?'Закуплено':x.status==='installed'?'Установлено':'Нужно купить'}</small></div><button class="mini-action" onclick="cycleEquipment('${x.id}','${x.status}')">↻</button></div>`).join('')||'<div class="muted-note">Список пуст.</div>'}<button class="crm-btn" onclick="addEquipment()">+ Оборудование</button></div>${locked?`<button class="v15-delete-disabled" disabled>🔒 Удаление недоступно после назначения замера</button>`:`<button class="crm-btn red" onclick="deleteLead('${l.id}')">🗑 Удалить заявку</button>`}</div>
+ <div class="lead-tab-panel" data-panel="history"><div class="crm-section"><h4>📝 Заметка</h4><textarea id="internalNote" class="crm-input" rows="3" placeholder="Клиент этого не видит">${esc(l.internal_note||'')}</textarea><button class="crm-btn" onclick="saveInternalNote()">Сохранить</button><button class="crm-btn" onclick="addNote()">+ Запись в историю</button></div><div class="crm-section"><h4>📦 Оборудование</h4>${(d.equipment||[]).map(x=>`<div class="v14-list-row"><div class="grow"><b>${esc(x.name)} × ${x.qty}</b><small>${x.status==='bought'?'Закуплено':x.status==='installed'?'Установлено':'Нужно купить'}</small></div><button class="mini-action" onclick="cycleEquipment('${x.id}','${x.status}')">↻</button></div>`).join('')||'<div class="muted-note">Список пуст.</div>'}<button class="crm-btn" onclick="addEquipment()">+ Оборудование</button></div><button class="crm-btn red" onclick="deleteLead('${l.id}')">🗑 Удалить заявку</button></div>
  <button class="sheet-bottom-close" onclick="closeSheet()">Закрыть заявку</button>`;
  setTimeout(()=>loadLeadPhotoBlobs(),30);
 }
 
 openScheduleEditor=function(kind){if(!selectedLead)return;const isM=kind==='measurement',current=isM?selectedLead.visit_date:selectedLead.installation_date;document.getElementById('sheetContent').innerHTML=`<div class="sheet-head"><div><div class="sheet-no">${leadNumber(selectedLead)}</div><h3>${isM?'📐 Замер':'🔧 Монтаж'}</h3><div class="meta">${esc(selectedLead.client?.full_name||'Клиент')}</div></div></div><div class="notice">После сохранения событие появится в календаре, а клиент сразу получит сообщение в Telegram.</div>${isM&&!selectedLead.visit_date?`<div class="v15-lock">🔒 <div><b>Важно:</b> после первого назначения замера эту заявку удалить уже нельзя — история сохраняется.</div></div>`:''}<div class="info-box full" style="margin:16px 0"><small>Дата и время</small><input id="scheduleInput" type="datetime-local" value="${toLocalInputValue(current)}" style="width:100%;margin-top:8px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#091423;color:var(--text);font-size:16px"></div><div class="sheet-actions"><button class="act secondary" onclick="openLead('${selectedLead.id}')">← Назад</button><button class="act primary" onclick="saveSchedule('${kind}')">${current?'Сохранить перенос':'Назначить'}</button></div>${current?`<button class="act danger" style="width:100%" onclick="clearSchedule('${kind}')">Отменить ${isM?'замер':'монтаж'}</button>`:''}`;showSheet()}
 
-async function deleteLead(id){const l=(data.leads||[]).find(x=>x.id===id);if(v15IsLocked(l)){toast('Нельзя удалить: замер уже назначался');return}if(!confirm(`Удалить заявку ${l?leadNumber(l):''}?`))return;try{await apiPost({action:'delete_lead',lead_id:id});closeSheet();await loadData();toast('Заявка удалена')}catch(e){toast(e.message||'Не удалось удалить')}}
+async function deleteLead(id){const l=(data.leads||[]).find(x=>x.id===id);if(!confirm(`Удалить заявку ${l?leadNumber(l):''}?`))return;try{await apiPost({action:'delete_lead',lead_id:id});closeSheet();await loadData();toast('Заявка удалена')}catch(e){toast(e.message||'Не удалось удалить')}}
 
 function v15DateKey(v){const d=new Date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function v15EventRows(){const out=[];(data.leads||[]).forEach(l=>{if(l.visit_date)out.push({date:l.visit_date,kind:'Замер',icon:'📐',l});if(l.installation_date)out.push({date:l.installation_date,kind:'Монтаж',icon:'🔧',l})});return out.sort((a,b)=>new Date(a.date)-new Date(b.date))}
@@ -578,15 +578,13 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
   let suppressClickUntil=0;
   const baseCardHtml=cardHtml;
 
-  window.v152Locked=function(l){
-    try{return typeof v15IsLocked==='function' ? v15IsLocked(l) : !!(l?.deletion_locked||l?.visit_date)}catch(_){return !!(l?.deletion_locked||l?.visit_date)}
-  };
+  window.v152Locked=function(l){ return false; };
 
   cardHtml=function(l){
     const when=l.visit_date?`📐 ${fmtDate(l.visit_date)}`:l.installation_date?`🔧 ${fmtDate(l.installation_date)}`:fmtDate(l.created_at);
     const locked=v152Locked(l);
     return `<div class="swipe-wrap" data-swipe-id="${esc(l.id)}">
-      <div class="swipe-delete-bg ${locked?'locked':''}">${locked?'🔒 Защищена':'🗑 Удалить'}</div>
+      <div class="swipe-delete-bg">🗑 Удалить</div>
       <div class="lead swipe-lead" data-status="${esc(l.status||'new')}" data-lead-id="${esc(l.id)}"
         onclick="v152OpenLead(event,'${l.id}')"
         ontouchstart="v152TouchStart(event,'${l.id}')"
@@ -632,12 +630,6 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
     suppressClickUntil=Date.now()+700;
     if(s.dx>-90){s.lead.style.transform='';return}
     const l=(data.leads||[]).find(x=>x.id===id);
-    if(v152Locked(l)){
-      s.lead.style.transform='';
-      try{tg?.HapticFeedback?.notificationOccurred('warning')}catch(_){}
-      toast('🔒 Нельзя удалить: замер уже назначался');
-      return;
-    }
     s.lead.style.transform='translateX(-118px)';
     if(!confirm(`Удалить заявку ${l?leadNumber(l):''}? Она удалится из CRM и Telegram.`)){
       s.lead.style.transform='';return;
