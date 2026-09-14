@@ -563,4 +563,105 @@ renderCalendar=function(){const el=document.getElementById('calendarCards');if(!
 const v15BaseRender=render;render=function(){v15BaseRender();const home=document.getElementById('homeView');if(home&&!document.getElementById('v15QuickHome')){const box=document.createElement('div');box.id='v15QuickHome';box.className='v15-quick-home';box.innerHTML=`<button onclick="setView('calendar')">📅 Календарь<span>Замеры и монтажи</span></button><button onclick="openDashboardFilter('new')">📞 Новые заявки<span>Кому нужно позвонить</span></button>`;const hero=home.querySelector('.hero');hero?.after(box)}renderCalendar()}
 </script>
 
+
+<style id="v152-swipe-style">
+.swipe-wrap{position:relative;overflow:hidden;border-radius:18px;margin:0 0 10px}
+.swipe-wrap>.lead{margin:0;position:relative;z-index:2;touch-action:pan-y;will-change:transform;transition:transform .18s ease,opacity .18s ease}
+.swipe-delete-bg{position:absolute;inset:0 0 0 auto;width:118px;display:flex;align-items:center;justify-content:center;gap:6px;background:#d9363e;color:#fff;font-weight:800;font-size:14px;z-index:1;border-radius:18px}
+.swipe-delete-bg.locked{background:#273142;color:#9aa7b8;font-size:12px;text-align:center;padding:0 10px}
+.swipe-wrap.swiping>.lead{transition:none}
+.swipe-wrap.deleting>.lead{transition:transform .18s ease,opacity .18s ease}
+</style>
+<script id="v152-swipe-script">
+(function(){
+  let swipeState=null;
+  let suppressClickUntil=0;
+  const baseCardHtml=cardHtml;
+
+  window.v152Locked=function(l){
+    try{return typeof v15IsLocked==='function' ? v15IsLocked(l) : !!(l?.deletion_locked||l?.visit_date)}catch(_){return !!(l?.deletion_locked||l?.visit_date)}
+  };
+
+  cardHtml=function(l){
+    const when=l.visit_date?`📐 ${fmtDate(l.visit_date)}`:l.installation_date?`🔧 ${fmtDate(l.installation_date)}`:fmtDate(l.created_at);
+    const locked=v152Locked(l);
+    return `<div class="swipe-wrap" data-swipe-id="${esc(l.id)}">
+      <div class="swipe-delete-bg ${locked?'locked':''}">${locked?'🔒 Защищена':'🗑 Удалить'}</div>
+      <div class="lead swipe-lead" data-status="${esc(l.status||'new')}" data-lead-id="${esc(l.id)}"
+        onclick="v152OpenLead(event,'${l.id}')"
+        ontouchstart="v152TouchStart(event,'${l.id}')"
+        ontouchmove="v152TouchMove(event)"
+        ontouchend="v152TouchEnd(event,'${l.id}')"
+        ontouchcancel="v152TouchCancel(event)">
+        <div class="lead-top"><div><div class="lead-no">ЗАЯВКА ${leadNumber(l)}</div><div class="client">${esc(l.client?.full_name||'Без имени')}</div><div class="meta">${esc(l.client?.city||'—')} · ${esc(l.system_type||l.object_type||'Объект')}</div></div><span class="badge ${badgeClass(l.status)}">${esc(l.status_label||l.status||'—')}</span></div>
+        <div class="lead-info"><span class="power">${l.desired_power_kw?esc(l.desired_power_kw)+' кВт':'Мощность —'}</span><span class="spacer"></span><span class="date">${esc(when)}</span></div>
+      </div>
+    </div>`;
+  };
+
+  window.v152OpenLead=function(e,id){
+    if(Date.now()<suppressClickUntil){e?.preventDefault?.();e?.stopPropagation?.();return}
+    openLead(id);
+  };
+
+  window.v152TouchStart=function(e,id){
+    const t=e.touches?.[0]; if(!t)return;
+    const lead=e.currentTarget,wrap=lead.closest('.swipe-wrap');
+    swipeState={id,lead,wrap,startX:t.clientX,startY:t.clientY,dx:0,dy:0,horizontal:false};
+    wrap?.classList.add('swiping');
+  };
+
+  window.v152TouchMove=function(e){
+    if(!swipeState)return; const t=e.touches?.[0]; if(!t)return;
+    const s=swipeState; s.dx=t.clientX-s.startX; s.dy=t.clientY-s.startY;
+    if(!s.horizontal){
+      if(Math.abs(s.dy)>Math.abs(s.dx)+5){return}
+      if(Math.abs(s.dx)>8)s.horizontal=true;
+    }
+    if(!s.horizontal)return;
+    e.preventDefault();
+    let x=Math.max(-150,Math.min(0,s.dx));
+    s.lead.style.transform=`translateX(${x}px)`;
+  };
+
+  window.v152TouchEnd=async function(e,id){
+    const s=swipeState; swipeState=null; if(!s)return;
+    s.wrap?.classList.remove('swiping');
+    const horizontal=s.horizontal && Math.abs(s.dx)>35 && Math.abs(s.dx)>Math.abs(s.dy);
+    if(!horizontal){s.lead.style.transform='';return}
+    suppressClickUntil=Date.now()+700;
+    if(s.dx>-90){s.lead.style.transform='';return}
+    const l=(data.leads||[]).find(x=>x.id===id);
+    if(v152Locked(l)){
+      s.lead.style.transform='';
+      try{tg?.HapticFeedback?.notificationOccurred('warning')}catch(_){}
+      toast('🔒 Нельзя удалить: замер уже назначался');
+      return;
+    }
+    s.lead.style.transform='translateX(-118px)';
+    if(!confirm(`Удалить заявку ${l?leadNumber(l):''}? Она удалится из CRM и Telegram.`)){
+      s.lead.style.transform='';return;
+    }
+    try{
+      s.wrap?.classList.add('deleting');
+      s.lead.style.transform='translateX(-110%)'; s.lead.style.opacity='0';
+      try{tg?.HapticFeedback?.notificationOccurred('success')}catch(_){}
+      await apiPost({action:'delete_lead',lead_id:id});
+      await loadData();
+      toast('Заявка удалена');
+    }catch(err){
+      s.lead.style.transform='';s.lead.style.opacity='1';s.wrap?.classList.remove('deleting');
+      toast(err?.message||'Не удалось удалить');
+    }
+  };
+
+  window.v152TouchCancel=function(){
+    if(swipeState?.lead)swipeState.lead.style.transform='';
+    swipeState?.wrap?.classList.remove('swiping');swipeState=null;
+  };
+
+  // Перерисовываем карточки после подключения свайпа.
+  setTimeout(()=>{try{if(ownerSession)render()}catch(_){}},80);
+})();
+</script>
 </body></html>
