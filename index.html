@@ -710,8 +710,15 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
     if(sheet?.classList.contains('show')) return 'sheet';
     const conv=document.getElementById('conversationPanel');
     if(visible(conv)) return 'conversation';
+
+    // Главное меню — корневой экран. На нём свайп влево ничего не делает.
+    // Проверяем активную кнопку навигации, чтобы скрытые/анимируемые view не давали ложный переход на Home.
+    const activeNav=document.querySelector('.nav button.active')?.dataset?.view || '';
+    if(activeNav==='home') return null;
+
     const v=currentView();
     if(v==='clientsView'||v==='settingsView') return 'moreBack';
+    if(activeNav==='more' && v==='moreView') return null;
     if(v!=='homeView') return 'homeBack';
     return null;
   }
