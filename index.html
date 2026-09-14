@@ -664,4 +664,20 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
   setTimeout(()=>{try{if(ownerSession)render()}catch(_){}},80);
 })();
 </script>
+
+<style id="v153-pull-style">
+#pullRefresh{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translate(-50%,-70px);z-index:9999;background:rgba(20,25,33,.96);border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:9px 14px;font-size:12px;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.28);opacity:0;transition:transform .2s ease,opacity .2s ease;pointer-events:none;white-space:nowrap}
+#pullRefresh.show{opacity:1}#pullRefresh.ready{border-color:rgba(244,191,73,.45)}#pullRefresh.refreshing{opacity:1;transform:translate(-50%,0)}
+</style>
+<div id="pullRefresh">↓ Потяните для обновления</div>
+<script id="v153-pull-script">
+(function(){
+ const el=document.getElementById('pullRefresh'); let st=null, busy=false;
+ function scrollerAtTop(){return (window.scrollY||document.documentElement.scrollTop||0)<=1}
+ document.addEventListener('touchstart',e=>{if(busy||!ownerSession||!scrollerAtTop())return;const t=e.touches?.[0];if(!t)return;st={x:t.clientX,y:t.clientY,dy:0,active:false}}, {passive:true});
+ document.addEventListener('touchmove',e=>{if(!st||busy)return;const t=e.touches?.[0];if(!t)return;const dx=t.clientX-st.x,dy=t.clientY-st.y;st.dy=dy;if(dy<=0||Math.abs(dx)>Math.abs(dy)){if(st.active){el.className='';el.style.transform='translate(-50%,-70px)'}return}if(!scrollerAtTop())return;st.active=true;e.preventDefault();const pull=Math.min(92,dy*.48);el.className='show'+(dy>115?' ready':'');el.textContent=dy>115?'↻ Отпустите — обновить':'↓ Потяните для обновления';el.style.transform=`translate(-50%,${Math.max(-55,pull-55)}px)`}, {passive:false});
+ document.addEventListener('touchend',async()=>{if(!st)return;const go=st.active&&st.dy>115;st=null;if(!go){el.className='';el.style.transform='translate(-50%,-70px)';return}busy=true;el.className='refreshing';el.textContent='↻ Обновляю…';try{await loadData();toast('Данные обновлены')}catch(_){toast('Не удалось обновить')}finally{setTimeout(()=>{busy=false;el.className='';el.style.transform='translate(-50%,-70px)'},450)}}, {passive:true});
+ document.addEventListener('touchcancel',()=>{st=null;if(!busy){el.className='';el.style.transform='translate(-50%,-70px)'}},{passive:true});
+})();
+</script>
 </body></html>
