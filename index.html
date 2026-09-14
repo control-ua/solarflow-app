@@ -338,7 +338,37 @@ async function addPayment(){const amount=prompt('Сумма оплаты, грн
 async function editFinance(){const deal=prompt('Стоимость объекта, грн:',String(selectedLead.deal_amount||0));if(deal===null)return;const pre=prompt('Предоплата (для сводки), грн:',String(selectedLead.prepayment||0));if(pre===null)return;await apiPost({action:'save_finance',lead_id:selectedLead.id,deal_amount:Number(deal),prepayment:Number(pre)});selectedLead.deal_amount=Number(deal);selectedLead.prepayment=Number(pre);await reloadLead()}
 async function assignAdmin(id){await apiPost({action:'assign_admin',lead_id:selectedLead.id,admin_id:id||null});selectedLead.assigned_admin_id=id||null;toast('Ответственный изменён')}
 async function deleteDetail(kind,id){if(!confirm('Удалить запись?'))return;await apiPost({action:'delete_detail',kind,id});await reloadLead()}
-function printProposal(){const l=selectedLead,d=l?._details||{},items=d.estimate||[],total=items.reduce((a,x)=>a+Number(x.qty||0)*Number(x.unit_price||0),0);const w=window.open('','_blank');if(!w){toast('Разрешите всплывающие окна');return}w.document.write(`<html><head><meta charset="utf-8"><title>SolarFlow ${leadNumber(l)}</title><style>body{font-family:Arial;padding:35px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin-top:25px}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}.right{text-align:right}.total{font-size:22px;font-weight:bold;margin-top:25px;text-align:right}</style></head><body><h1>SolarFlow</h1><div class="muted">Коммерческое предложение · ${leadNumber(l)}</div><h2>${esc(l.client?.full_name||'Клиент')}</h2><p>${esc(l.system_type||'')} ${l.desired_power_kw?esc(l.desired_power_kw)+' кВт':''}<br>${esc(l.client?.city||'')} ${esc(l.address||'')}</p><table><tr><th>Позиция</th><th>Кол.</th><th class="right">Цена</th><th class="right">Сумма</th></tr>${items.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.qty}</td><td class="right">${money(x.unit_price)}</td><td class="right">${money(Number(x.qty)*Number(x.unit_price))}</td></tr>`).join('')}</table><div class="total">Итого: ${money(total)}</div><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);w.document.close()}
+function printProposal(){const l=selectedLead,d=l?._details||{},items=d.estimate||[],total=items.reduce((a,x)=>a+Number(x.qty||0)*Number(x.unit_price||0),0);const w=window.open('','_blank');if(!w){toast('Разрешите всплывающие окна');return}w.document.write(`<html><head><meta charset="utf-8"><title>SolarFlow ${leadNumber(l)}</title><style>body{font-family:Arial;padding:35px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin-top:25px}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}.right{text-align:right}.total{font-size:22px;font-weight:bold;margin-top:25px;text-align:right}</style></head><body><h1>SolarFlow</h1><div class="muted">Коммерческое предложение · ${leadNumber(l)}</div><h2>${esc(l.client?.full_name||'Клиент')}</h2><p>${esc(l.system_type||'')} ${l.desired_power_kw?esc(l.desired_power_kw)+' кВт':''}<br>${esc(l.client?.city||'')} ${esc(l.address||'')}</p><table><tr><th>Позиция</th><th>Кол.</th><th class="right">Цена</th><th class="right">Сумма</th></tr>${items.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.qty}</td><td class="right">${money(x.unit_price)}</td><td class="right">${money(Number(x.qty)*Number(x.unit_price))}</td></tr>`).join('')}</table><div class="total">Итого: ${money(total)}</div><script>setTimeout(()=>window.print(),300)<\/script><script>
+(function(){
+ const API=window.API_URL||"https://mchfkcmjycrtznlaxlvm.supabase.co/functions/v1/telegram-bot?miniapp=1";
+ function b64ToU8(s){const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))}
+ async function post(x){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-SolarFlow-Session':ownerSession},body:JSON.stringify(x)});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||'Ошибка');return j}
+ window.enableRealPush=async function(){
+   try{
+    if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))throw new Error('Push не поддерживается на этом устройстве');
+    if(Notification.permission==='denied')throw new Error('Уведомления запрещены в настройках iPhone');
+    const perm=await Notification.requestPermission();if(perm!=='granted')throw new Error('Разрешение на уведомления не выдано');
+    const reg=await navigator.serviceWorker.ready;
+    const cfg=await fetch(API+'&section=push_config&t='+Date.now(),{cache:'no-store',headers:{'X-SolarFlow-Session':ownerSession}}).then(r=>r.json());
+    if(!cfg.configured||!cfg.public_key)throw new Error('VAPID ключи ещё не настроены в Supabase');
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(cfg.public_key)});
+    await post({action:'save_push_subscription',subscription:sub.toJSON(),user_agent:navigator.userAgent});
+    localStorage.setItem('sf_real_push','1'); if(window.toast)toast('Push-уведомления включены');
+   }catch(e){if(window.toast)toast(e.message||'Не удалось включить push');else alert(e.message)}
+ };
+ window.testRealPush=async function(){try{await post({action:'test_push'});if(window.toast)toast('Тест отправлен')}catch(e){if(window.toast)toast(e.message||'Ошибка push')}};
+ function addButtons(){
+  const host=[...document.querySelectorAll('*')].find(x=>x.children.length<8&&(x.textContent||'').includes('Звук уведомлений'));
+  if(!host||document.getElementById('realPushBox'))return;
+  const box=document.createElement('div');box.id='realPushBox';box.style.cssText='margin-top:12px;display:grid;gap:8px';
+  box.innerHTML='<button class="btn primary" onclick="enableRealPush()">🔔 Включить уведомления при закрытом приложении</button><button class="btn" onclick="testRealPush()">🧪 Проверить push</button><div class="muted" style="font-size:12px">На iPhone SolarFlow должна быть добавлена на экран «Домой».</div>';
+  host.appendChild(box);
+ }
+ new MutationObserver(addButtons).observe(document.body,{childList:true,subtree:true});setTimeout(addButtons,500);setTimeout(addButtons,1500);
+})();
+</script>
+</body></html>`);w.document.close()}
 function toLocalInputValue(v){if(!v)return"";const d=new Date(v),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`}
 function openScheduleEditor(kind){if(!selectedLead)return;const isM=kind==="measurement",current=isM?selectedLead.visit_date:selectedLead.installation_date;document.getElementById("sheetContent").innerHTML=`<div class="sheet-head"><div><div class="sheet-no">${leadNumber(selectedLead)}</div><h3>${isM?"📐 Замер":"🔧 Монтаж"}</h3><div class="meta">${esc(selectedLead.client?.full_name||"Клиент")}</div></div></div><div class="notice">После сохранения дата появится в календаре, а клиент получит сообщение в Telegram.</div><div class="info-box full" style="margin:16px 0"><small>Дата и время</small><input id="scheduleInput" type="datetime-local" value="${toLocalInputValue(current)}" style="width:100%;margin-top:8px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#091423;color:var(--text);font-size:16px"></div><div class="sheet-actions"><button class="act secondary" onclick="openLead('${selectedLead.id}')">← Назад</button><button class="act primary" onclick="saveSchedule('${kind}')">Сохранить</button></div>${current?`<button class="act danger" style="width:100%" onclick="clearSchedule('${kind}')">Удалить дату</button>`:""}`;showSheet()}
 async function saveSchedule(kind){const inp=document.getElementById("scheduleInput");if(!inp?.value){toast("Выберите дату и время");return}const d=new Date(inp.value);if(Number.isNaN(d.getTime())){toast("Неверная дата");return}try{await apiPost({action:"schedule_event",lead_id:selectedLead.id,kind,datetime:d.toISOString()});await loadData();selectedLead=(data.leads||[]).find(x=>x.id===selectedLead.id)||selectedLead;openLead(selectedLead.id);toast(kind==="measurement"?"Замер назначен":"Монтаж назначен")}catch(e){toast(e.message||"Не удалось сохранить")}}
@@ -792,6 +822,36 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
     if(kind==='homeBack'){setView('home');return}
   },{passive:true});
   document.addEventListener('touchcancel',()=>{g=null},{passive:true});
+})();
+</script>
+<script>
+(function(){
+ const API=window.API_URL||"https://mchfkcmjycrtznlaxlvm.supabase.co/functions/v1/telegram-bot?miniapp=1";
+ function b64ToU8(s){const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))}
+ async function post(x){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-SolarFlow-Session':ownerSession},body:JSON.stringify(x)});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||'Ошибка');return j}
+ window.enableRealPush=async function(){
+   try{
+    if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))throw new Error('Push не поддерживается на этом устройстве');
+    if(Notification.permission==='denied')throw new Error('Уведомления запрещены в настройках iPhone');
+    const perm=await Notification.requestPermission();if(perm!=='granted')throw new Error('Разрешение на уведомления не выдано');
+    const reg=await navigator.serviceWorker.ready;
+    const cfg=await fetch(API+'&section=push_config&t='+Date.now(),{cache:'no-store',headers:{'X-SolarFlow-Session':ownerSession}}).then(r=>r.json());
+    if(!cfg.configured||!cfg.public_key)throw new Error('VAPID ключи ещё не настроены в Supabase');
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(cfg.public_key)});
+    await post({action:'save_push_subscription',subscription:sub.toJSON(),user_agent:navigator.userAgent});
+    localStorage.setItem('sf_real_push','1'); if(window.toast)toast('Push-уведомления включены');
+   }catch(e){if(window.toast)toast(e.message||'Не удалось включить push');else alert(e.message)}
+ };
+ window.testRealPush=async function(){try{await post({action:'test_push'});if(window.toast)toast('Тест отправлен')}catch(e){if(window.toast)toast(e.message||'Ошибка push')}};
+ function addButtons(){
+  const host=[...document.querySelectorAll('*')].find(x=>x.children.length<8&&(x.textContent||'').includes('Звук уведомлений'));
+  if(!host||document.getElementById('realPushBox'))return;
+  const box=document.createElement('div');box.id='realPushBox';box.style.cssText='margin-top:12px;display:grid;gap:8px';
+  box.innerHTML='<button class="btn primary" onclick="enableRealPush()">🔔 Включить уведомления при закрытом приложении</button><button class="btn" onclick="testRealPush()">🧪 Проверить push</button><div class="muted" style="font-size:12px">На iPhone SolarFlow должна быть добавлена на экран «Домой».</div>';
+  host.appendChild(box);
+ }
+ new MutationObserver(addButtons).observe(document.body,{childList:true,subtree:true});setTimeout(addButtons,500);setTimeout(addButtons,1500);
 })();
 </script>
 </body></html>
