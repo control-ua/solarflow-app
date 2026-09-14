@@ -150,23 +150,23 @@ button{cursor:pointer}.hidden{display:none!important}
  <header class="topbar"><div class="brand"><div class="logo"><span>☀️</span></div><div><div class="brand-title">SolarFlow</div><div class="brand-sub">Солнечная энергетика под ключ</div></div></div><div class="profile" id="avatar">A</div></header>
 
  <main id="homeView">
-   <section class="hero"><div class="eyebrow" id="dayLabel">Сегодня</div><h1 id="hello">Добрый вечер 👋</h1><p>Заявки, замеры и монтажи собраны в одном месте.</p><div class="hero-actions"><button class="pillbtn gold" onclick="setView('leads')">📋 Открыть заявки</button><button class="pillbtn dark" onclick="loadData()">↻ Обновить</button></div></section>
+   <section class="hero"><div class="eyebrow" id="dayLabel">Сегодня</div><h1 id="hello">Добрый вечер 👋</h1><p>Заявки, замеры и монтажи собраны в одном месте.</p><div class="hero-actions"><button class="pillbtn gold" onclick="setView('leads')">📋 Открыть заявки</button></div></section>
    <div class="metrics"><div class="metric gold" role="button" tabindex="0" onclick="openDashboardFilter('new')"><b id="sNew">0</b><span>Новые</span></div><div class="metric blue" role="button" tabindex="0" onclick="openDashboardFilter('measurement')"><b id="sMeasure">0</b><span>Замеры</span></div><div class="metric" role="button" tabindex="0" onclick="openDashboardFilter('installation')"><b id="sInstall">0</b><span>Монтажи</span></div><div class="metric green" role="button" tabindex="0" onclick="openDashboardFilter('paid')"><b id="sPaid">0</b><span>Оплачено</span></div></div>
    <div class="section-title"><h2>На сегодня</h2><button onclick="setView('calendar')">Календарь</button></div><div class="today" id="todayTasks"></div>
    <div class="section-title"><h2>Последние заявки</h2><button onclick="setView('leads')">Все заявки</button></div><div class="cards" id="recentCards"></div>
  </main>
 
  <main id="leadsView" class="hidden">
-   <div class="section-title"><h2>Заявки</h2><button onclick="loadData()">Обновить</button></div>
+   <div class="section-title"><h2>Заявки</h2></div>
    <div class="search-wrap"><input id="search" class="search" placeholder="№ заявки, имя, телефон, город…" oninput="renderAllLeads()"/></div>
    <div class="chips" id="chips"><button class="chip active" data-filter="all" onclick="setFilter('all',this)">Все</button><button class="chip" data-filter="new" onclick="setFilter('new',this)">Новые</button><button class="chip" data-filter="measurement" onclick="setFilter('measurement',this)">Замеры</button><button class="chip" data-filter="installation" onclick="setFilter('installation',this)">Монтажи</button><button class="chip" data-filter="paid" onclick="setFilter('paid',this)">Оплачено</button><button class="chip archive-chip" data-filter="archive" onclick="setFilter('archive',this)">Архив</button></div>
    <div class="cards" id="allCards"></div>
  </main>
 
- <main id="calendarView" class="hidden"><div class="section-title"><h2>Календарь</h2><button onclick="loadData()">Обновить</button></div><div id="calendarCards"></div></main>
+ <main id="calendarView" class="hidden"><div class="section-title"><h2>Календарь</h2></div><div id="calendarCards"></div></main>
 
  <main id="chatView" class="hidden">
-   <div id="chatListPanel"><div class="section-title"><h2>Чаты</h2><button onclick="refreshChats(true)">Обновить</button></div><div class="search-wrap"><input id="chatSearch" class="search" placeholder="Имя, телефон, город…" oninput="renderChats()"/></div><div id="chatList" class="chat-list"></div></div>
+   <div id="chatListPanel"><div class="section-title"><h2>Чаты</h2></div><div class="search-wrap"><input id="chatSearch" class="search" placeholder="Имя, телефон, город…" oninput="renderChats()"/></div><div id="chatList" class="chat-list"></div></div>
    <div id="conversationPanel" class="hidden"><div class="conversation-head"><button class="backbtn" onclick="closeConversation()">‹</button><div class="conversation-person"><b id="chatPerson">Клиент</b><span id="chatPersonMeta"></span></div><button class="pillbtn dark" onclick="callActiveChat()">📞</button></div><div class="chips" style="margin-top:0"><button class="chip" onclick="quickReply('Добрый день! Получили вашу заявку.')">Заявка получена</button><button class="chip" onclick="quickReply('Когда вам удобно провести замер?')">Когда замер?</button><button class="chip" onclick="quickReply('Спасибо! Свяжемся с вами в ближайшее время.')">Спасибо</button></div><div id="messages" class="messages"></div><div class="composer"><input id="messageInput" placeholder="Сообщение клиенту…" maxlength="3500" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage()}"/><button class="sendbtn" onclick="sendChatMessage()">➤</button></div></div>
  </main>
 
@@ -552,7 +552,7 @@ renderLeadCRM=function(){
  setTimeout(()=>loadLeadPhotoBlobs(),30);
 }
 
-openScheduleEditor=function(kind){if(!selectedLead)return;const isM=kind==='measurement',current=isM?selectedLead.visit_date:selectedLead.installation_date;document.getElementById('sheetContent').innerHTML=`<div class="sheet-head"><div><div class="sheet-no">${leadNumber(selectedLead)}</div><h3>${isM?'📐 Замер':'🔧 Монтаж'}</h3><div class="meta">${esc(selectedLead.client?.full_name||'Клиент')}</div></div></div><div class="notice">После сохранения событие появится в календаре, а клиент сразу получит сообщение в Telegram.</div>${isM&&!selectedLead.visit_date?`<div class="v15-lock">🔒 <div><b>Важно:</b> после первого назначения замера эту заявку удалить уже нельзя — история сохраняется.</div></div>`:''}<div class="info-box full" style="margin:16px 0"><small>Дата и время</small><input id="scheduleInput" type="datetime-local" value="${toLocalInputValue(current)}" style="width:100%;margin-top:8px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#091423;color:var(--text);font-size:16px"></div><div class="sheet-actions"><button class="act secondary" onclick="openLead('${selectedLead.id}')">← Назад</button><button class="act primary" onclick="saveSchedule('${kind}')">${current?'Сохранить перенос':'Назначить'}</button></div>${current?`<button class="act danger" style="width:100%" onclick="clearSchedule('${kind}')">Отменить ${isM?'замер':'монтаж'}</button>`:''}`;showSheet()}
+openScheduleEditor=function(kind){if(!selectedLead)return;const isM=kind==='measurement',current=isM?selectedLead.visit_date:selectedLead.installation_date;document.getElementById('sheetContent').innerHTML=`<div class="sheet-head"><div><div class="sheet-no">${leadNumber(selectedLead)}</div><h3>${isM?'📐 Замер':'🔧 Монтаж'}</h3><div class="meta">${esc(selectedLead.client?.full_name||'Клиент')}</div></div></div><div class="notice">После сохранения событие появится в календаре, а клиент сразу получит сообщение в Telegram.</div><div class="info-box full" style="margin:16px 0"><small>Дата и время</small><input id="scheduleInput" type="datetime-local" value="${toLocalInputValue(current)}" style="width:100%;margin-top:8px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#091423;color:var(--text);font-size:16px"></div><div class="sheet-actions"><button class="act secondary" onclick="openLead('${selectedLead.id}')">← Назад</button><button class="act primary" onclick="saveSchedule('${kind}')">${current?'Сохранить перенос':'Назначить'}</button></div>${current?`<button class="act danger" style="width:100%" onclick="clearSchedule('${kind}')">Отменить ${isM?'замер':'монтаж'}</button>`:''}`;showSheet()}
 
 async function deleteLead(id){const l=(data.leads||[]).find(x=>x.id===id);if(!confirm(`Удалить заявку ${l?leadNumber(l):''}?`))return;try{await apiPost({action:'delete_lead',lead_id:id});closeSheet();await loadData();toast('Заявка удалена')}catch(e){toast(e.message||'Не удалось удалить')}}
 
@@ -670,6 +670,56 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
  document.addEventListener('touchmove',e=>{if(!st||busy)return;const t=e.touches?.[0];if(!t)return;const dx=t.clientX-st.x,dy=t.clientY-st.y;st.dy=dy;if(dy<=0||Math.abs(dx)>Math.abs(dy)){if(st.active){el.className='';el.style.transform='translate(-50%,-70px)'}return}if(!scrollerAtTop())return;st.active=true;e.preventDefault();const pull=Math.min(92,dy*.48);el.className='show'+(dy>115?' ready':'');el.textContent=dy>115?'↻ Отпустите — обновить':'↓ Потяните для обновления';el.style.transform=`translate(-50%,${Math.max(-55,pull-55)}px)`}, {passive:false});
  document.addEventListener('touchend',async()=>{if(!st)return;const go=st.active&&st.dy>115;st=null;if(!go){el.className='';el.style.transform='translate(-50%,-70px)';return}busy=true;el.className='refreshing';el.textContent='↻ Обновляю…';try{await loadData();toast('Данные обновлены')}catch(_){toast('Не удалось обновить')}finally{setTimeout(()=>{busy=false;el.className='';el.style.transform='translate(-50%,-70px)'},450)}}, {passive:true});
  document.addEventListener('touchcancel',()=>{st=null;if(!busy){el.className='';el.style.transform='translate(-50%,-70px)'}},{passive:true});
+})();
+</script>
+
+<style id="v155-swipe-close-style">
+.sheet-body,.conversation-head,#conversationPanel{will-change:transform}
+</style>
+<script id="v155-swipe-close-script">
+(function(){
+  let g=null;
+  const MIN_X=90, MAX_Y=70;
+  function visible(el){return !!el && !el.classList.contains('hidden') && getComputedStyle(el).display!=='none'}
+  function currentView(){
+    const ids=['homeView','leadsView','calendarView','chatView','clientsView','settingsView','moreView'];
+    return ids.find(id=>visible(document.getElementById(id)))||'homeView';
+  }
+  function targetKind(){
+    const sheet=document.getElementById('sheet');
+    if(sheet?.classList.contains('show')) return 'sheet';
+    const conv=document.getElementById('conversationPanel');
+    if(visible(conv)) return 'conversation';
+    const v=currentView();
+    if(v==='clientsView'||v==='settingsView') return 'moreBack';
+    if(v!=='homeView') return 'homeBack';
+    return null;
+  }
+  document.addEventListener('touchstart',e=>{
+    if(e.touches?.length!==1)return;
+    const t=e.touches[0],kind=targetKind();
+    if(!kind)return;
+    // Do not hijack horizontal controls, inputs or lead-card delete swipes.
+    if(e.target.closest('input,textarea,select,.chips,.lead-tabs,.stage-line,.v15-calendar-tools,.swipe-wrap'))return;
+    g={x:t.clientX,y:t.clientY,lastX:t.clientX,lastY:t.clientY,kind,active:false};
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!g||e.touches?.length!==1)return;
+    const t=e.touches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;
+    g.lastX=t.clientX;g.lastY=t.clientY;
+    if(dx<-18 && Math.abs(dx)>Math.abs(dy)*1.25){g.active=true;e.preventDefault()}
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!g)return;
+    const dx=g.lastX-g.x,dy=g.lastY-g.y,kind=g.kind,ok=g.active&&dx<=-MIN_X&&Math.abs(dy)<=MAX_Y;
+    g=null;if(!ok)return;
+    try{navigator.vibrate?.(8)}catch(_){}
+    if(kind==='sheet'){closeSheet();return}
+    if(kind==='conversation'){closeConversation();return}
+    if(kind==='moreBack'){setView('more');return}
+    if(kind==='homeBack'){setView('home');return}
+  },{passive:true});
+  document.addEventListener('touchcancel',()=>{g=null},{passive:true});
 })();
 </script>
 </body></html>
