@@ -174,6 +174,7 @@ button{cursor:pointer}.hidden{display:none!important}
 
  <main id="settingsView" class="hidden"><div class="subhead"><button class="backbtn" onclick="setView('more')">‹</button><h2>Настройки</h2></div><div class="settings-group">
    <div class="setting"><div class="more-icon">🔔</div><div class="txt"><b>Уведомления о сообщениях</b><span>Показывать уведомления, когда клиент пишет в бот</span></div><div id="notifySwitch" class="switch" onclick="toggleNotifications()"><i></i></div></div>
+   <div class="setting"><div class="more-icon">🔊</div><div class="txt"><b>Звук уведомлений</b><span>Звуковой сигнал для новых заявок, сообщений и напоминаний</span></div><div id="soundSwitch" class="switch" onclick="toggleSound()"><i></i></div></div>
    <div class="setting"><div class="more-icon">↻</div><div class="txt"><b>Автообновление</b><span>Проверять новые сообщения каждые 8 секунд</span></div><div id="autoSwitch" class="switch" onclick="toggleAutoRefresh()"><i></i></div></div>
    <div class="setting"><div class="more-icon">⏰</div><div class="txt"><b>Напоминания о работах</b><span>Напоминать о замерах и монтажах, когда приложение открыто</span></div><div id="reminderSwitch" class="switch" onclick="toggleReminders()"><i></i></div></div>
    <div class="setting" onclick="requestNotificationPermission()"><div class="more-icon">📲</div><div class="txt"><b>Разрешение iPhone</b><span id="notifyPermissionText">Проверить разрешение уведомлений</span></div><span class="arrow">›</span></div>
@@ -197,7 +198,8 @@ const tg=window.Telegram?.WebApp;
 let data={leads:[],stats:{},admin:{name:"Администратор"},chats:[]},selectedLead=null,currentFilter="all";
 let activeChat=null,chatMessages=[],lastUnreadTotal=0,chatTimer=null,reminderTimer=null;
 let knownLeadIds=null,remindedEvents=new Set();
-let appSettings={notifications:localStorage.getItem("sf_notify")!=="0",autoRefresh:localStorage.getItem("sf_auto")!=="0",reminders:localStorage.getItem("sf_reminders")!=="0"};
+let appSettings={notifications:localStorage.getItem("sf_notify")!=="0",sound:localStorage.getItem("sf_sound")!=="0",autoRefresh:localStorage.getItem("sf_auto")!=="0",reminders:localStorage.getItem("sf_reminders")!=="0"};
+let sfAudioCtx=null,sfAudioUnlocked=false;
 let ownerSession=localStorage.getItem("solarflow_owner_session")||"";
 if(tg){tg.ready();tg.expand();try{tg.setHeaderColor("#07101c");tg.setBackgroundColor("#07101c")}catch(e){}}
 
@@ -382,7 +384,47 @@ function timeShort(v){if(!v)return"";const d=new Date(v),today=new Date();return
 function updateChatBadge(){const n=(data.chats||[]).reduce((a,c)=>a+Number(c.unread||0),0),b=document.getElementById("chatBadge");if(!b)return;b.textContent=n>99?"99+":n;b.style.display=n?"grid":"none"}
 function renderChats(){const q=(document.getElementById("chatSearch")?.value||"").toLowerCase().trim();const arr=(data.chats||[]).filter(c=>[c.full_name,c.phone,c.city,c.last_text].join(" ").toLowerCase().includes(q));document.getElementById("chatList").innerHTML=arr.map(c=>`<div class="chat-row" onclick="openChat('${c.client_id}')"><div class="chat-avatar">${esc((c.full_name||"?")[0]?.toUpperCase()||"?")}</div><div class="chat-main"><div class="chat-top"><b>${esc(c.full_name||"Клиент")}</b><span class="chat-time">${esc(timeShort(c.last_at))}</span></div><div class="chat-preview"><span>${c.last_direction==="out"?"Вы: ":""}${esc(c.last_text||"")}</span>${c.unread?`<span class="unread">${c.unread}</span>`:""}</div></div></div>`).join("")||'<div class="empty"><b>Сообщений пока нет</b>Когда клиент напишет боту, чат появится здесь.</div>';updateChatBadge()}
 async function refreshChats(showErrors=false){if(!ownerSession)return;try{const r=await fetch(API_URL+"&section=chats&t="+Date.now(),{cache:"no-store",headers:{"X-SolarFlow-Session":ownerSession}}),j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Ошибка");const old=lastUnreadTotal;data.chats=j.chats||[];const now=data.chats.reduce((a,c)=>a+Number(c.unread||0),0);if(now>old&&old>=0)notifyNewMessage();lastUnreadTotal=now;renderChats();if(activeChat)await loadChatMessages(activeChat.client_id,false)}catch(e){if(showErrors)toast("Не удалось обновить чаты")}}
-function notifyApp(title,body){if(!appSettings.notifications)return;if("Notification" in window&&Notification.permission==="granted"){try{new Notification(title,{body,icon:"./icons/icon-192.png"})}catch(e){}}}
+function ensureAudioContext(){
+  try{
+    if(!sfAudioCtx)sfAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(sfAudioCtx.state==="suspended")sfAudioCtx.resume().catch(()=>{});
+    return sfAudioCtx;
+  }catch(e){return null}
+}
+function unlockNotificationSound(){
+  if(sfAudioUnlocked)return;
+  const ctx=ensureAudioContext();if(!ctx)return;
+  try{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    g.gain.setValueAtTime(0.00001,ctx.currentTime);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+0.02);
+    sfAudioUnlocked=true;
+  }catch(e){}
+}
+function playNotificationSound(){
+  if(!appSettings.sound)return;
+  const ctx=ensureAudioContext();if(!ctx)return;
+  try{
+    const t=ctx.currentTime;
+    [[880,0,0.11],[1175,0.13,0.14]].forEach(([freq,delay,dur])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="sine";o.frequency.setValueAtTime(freq,t+delay);
+      g.gain.setValueAtTime(0.0001,t+delay);
+      g.gain.exponentialRampToValueAtTime(0.18,t+delay+0.018);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+delay+dur);
+      o.connect(g);g.connect(ctx.destination);o.start(t+delay);o.stop(t+delay+dur+0.02);
+    });
+    sfAudioUnlocked=true;
+  }catch(e){}
+  try{if(navigator.vibrate)navigator.vibrate([45,35,45])}catch(e){}
+  try{tg?.HapticFeedback?.notificationOccurred("success")}catch(e){}
+}
+function notifyApp(title,body){
+  if(!appSettings.notifications)return;
+  playNotificationSound();
+  if("Notification" in window&&Notification.permission==="granted"){
+    try{new Notification(title,{body,icon:"./icons/icon-192.png",tag:"solarflow-live",renotify:true,silent:false})}catch(e){}
+  }
+}
 function notifyNewMessage(){notifyApp("SolarFlow · новое сообщение","Клиент написал в Telegram-бот") }
 async function openChat(clientId){const summary=(data.chats||[]).find(c=>c.client_id===clientId)||{client_id:clientId,full_name:"Клиент"};activeChat=summary;document.getElementById("chatListPanel").classList.add("hidden");document.getElementById("conversationPanel").classList.remove("hidden");document.getElementById("chatPerson").textContent=summary.full_name||"Клиент";document.getElementById("chatPersonMeta").textContent=[summary.city,summary.phone].filter(Boolean).join(" · ");await loadChatMessages(clientId,true)}
 function closeConversation(reset=true){document.getElementById("conversationPanel")?.classList.add("hidden");document.getElementById("chatListPanel")?.classList.remove("hidden");if(reset)activeChat=null}
@@ -396,8 +438,9 @@ function renderClients(){const map=new Map();for(const l of data.leads||[]){if(l
 function openClients(){renderClients();setView("clients")}
 function openObjects(){const items=(data.leads||[]).map(l=>`${leadNumber(l)} — ${esc(l.client?.city||"")} ${esc(l.address||"Адрес не указан")}`).join("<br><br>")||"Объектов пока нет";document.getElementById("sheetContent").innerHTML=`<div class="sheet-head"><div><div class="sheet-no">SOLARFLOW</div><h3>Объекты</h3></div></div><div class="info-box full" style="margin-top:16px"><b>${items}</b></div>`;showSheet()}
 function openFinance(){const s=data.stats||{},deal=(data.leads||[]).reduce((a,l)=>a+Number(l.deal_amount||0),0),pre=(data.leads||[]).reduce((a,l)=>a+Number(l.prepayment||0),0);document.getElementById("sheetContent").innerHTML=`<div class="sheet-head"><div><div class="sheet-no">СВОДКА</div><h3>Финансы</h3></div></div><div class="info-grid"><div class="info-box"><small>Всего заявок</small><b>${s.total||0}</b></div><div class="info-box"><small>Оплачено</small><b>${s.paid||0}</b></div><div class="info-box"><small>Сумма договоров</small><b>${money(deal)}</b></div><div class="info-box"><small>Предоплаты</small><b>${money(pre)}</b></div><div class="info-box full"><small>Детальный учёт</small><b>Расходы, оплаты и прибыль доступны внутри каждой заявки.</b></div></div>`;showSheet()}
-function updateSettingsUI(){document.getElementById("notifySwitch")?.classList.toggle("on",appSettings.notifications);document.getElementById("autoSwitch")?.classList.toggle("on",appSettings.autoRefresh);document.getElementById("reminderSwitch")?.classList.toggle("on",appSettings.reminders);const p=document.getElementById("notifyPermissionText");if(p)p.textContent=("Notification" in window)?`Разрешение: ${Notification.permission}`:"Уведомления не поддерживаются";setupChatTimer();setupReminderTimer()}
+function updateSettingsUI(){document.getElementById("notifySwitch")?.classList.toggle("on",appSettings.notifications);document.getElementById("soundSwitch")?.classList.toggle("on",appSettings.sound);document.getElementById("autoSwitch")?.classList.toggle("on",appSettings.autoRefresh);document.getElementById("reminderSwitch")?.classList.toggle("on",appSettings.reminders);const p=document.getElementById("notifyPermissionText");if(p)p.textContent=("Notification" in window)?`Разрешение: ${Notification.permission}`:"Уведомления не поддерживаются";setupChatTimer();setupReminderTimer()}
 function toggleNotifications(){appSettings.notifications=!appSettings.notifications;localStorage.setItem("sf_notify",appSettings.notifications?"1":"0");updateSettingsUI();if(appSettings.notifications)requestNotificationPermission()}
+function toggleSound(){appSettings.sound=!appSettings.sound;localStorage.setItem("sf_sound",appSettings.sound?"1":"0");if(appSettings.sound){unlockNotificationSound();playNotificationSound();toast("Звук уведомлений включён")}else toast("Звук уведомлений выключен");updateSettingsUI()}
 function toggleAutoRefresh(){appSettings.autoRefresh=!appSettings.autoRefresh;localStorage.setItem("sf_auto",appSettings.autoRefresh?"1":"0");updateSettingsUI();toast(appSettings.autoRefresh?"Автообновление включено":"Автообновление выключено")}
 function toggleReminders(){appSettings.reminders=!appSettings.reminders;localStorage.setItem("sf_reminders",appSettings.reminders?"1":"0");updateSettingsUI();toast(appSettings.reminders?"Напоминания включены":"Напоминания выключены")}
 async function requestNotificationPermission(){if(!("Notification" in window)){toast("Уведомления не поддерживаются");return}try{const p=await Notification.requestPermission();updateSettingsUI();toast(p==="granted"?"Уведомления разрешены":"Разрешение не выдано")}catch(e){toast("Не удалось запросить разрешение")}}
@@ -405,6 +448,8 @@ function setupChatTimer(){if(chatTimer){clearInterval(chatTimer);chatTimer=null}
 function checkWorkReminders(){if(!appSettings.reminders||!ownerSession)return;const now=Date.now();for(const l of data.leads||[]){for(const [kind,v] of [["Замер",l.visit_date],["Монтаж",l.installation_date]]){if(!v)continue;const t=new Date(v).getTime(),mins=(t-now)/60000;if(mins>=0&&mins<=60){const key=`${l.id}:${kind}:${v}`;if(!remindedEvents.has(key)){remindedEvents.add(key);notifyApp(`SolarFlow · ${kind.toLowerCase()} скоро`,`${l.client?.full_name||"Клиент"} · ${fmtDate(v)}`)}}}}}
 function setupReminderTimer(){if(reminderTimer){clearInterval(reminderTimer);reminderTimer=null}if(appSettings.reminders&&ownerSession)reminderTimer=setInterval(checkWorkReminders,60000)}
 
+document.addEventListener("pointerdown",unlockNotificationSound,{once:true,passive:true});
+document.addEventListener("touchstart",unlockNotificationSound,{once:true,passive:true});
 document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});
 let lastTouchEnd=0;document.addEventListener("touchend",e=>{const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},{passive:false});
 if(ownerSession){loadData()}else{showLogin()}
