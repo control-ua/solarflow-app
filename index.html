@@ -135,6 +135,18 @@ button{cursor:pointer}.hidden{display:none!important}
 #sheetContent>.crm-btn.red{margin-top:12px;background:rgba(150,47,61,.55);border-color:rgba(219,89,106,.25)}
 @media(max-width:390px){.sheet-body{padding-left:11px;padding-right:11px}.crm-section{padding:13px;border-radius:18px}.sheet h3{font-size:24px}.info-box{padding:11px}.status-grid button{font-size:10.5px}}
 </style>
+
+<style>
+/* SolarFlow v16.1 — stage mover */
+.stage-move-btn{width:100%;margin:12px 0 4px;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,190,55,.34);background:linear-gradient(180deg,rgba(255,190,55,.16),rgba(255,190,55,.07));color:#ffd36a;font-weight:800;font-size:14px;text-align:left;display:flex;align-items:center;justify-content:space-between}
+.stage-menu{margin:10px 0 16px;padding:12px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
+.stage-menu-title{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:.08em;margin:0 2px 9px}
+.stage-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stage-option{border:1px solid var(--line);background:#101116;color:var(--text);border-radius:12px;padding:11px 10px;text-align:left;font-size:12px;font-weight:750;min-height:43px}
+.stage-option.current{border-color:#f6c54f;background:rgba(246,197,79,.12);color:#ffd76c}
+.stage-option.danger{color:#ff7e91;border-color:rgba(255,80,110,.25)}
+.stage-menu-note{font-size:11px;color:var(--muted);margin:9px 2px 0;line-height:1.4}
+</style>
 </head>
 <body>
 
@@ -818,4 +830,74 @@ const v15BaseRender=render;render=function(){v15BaseRender();const home=document
  setTimeout(()=>window.updateRealPushStatus?.(),700);
 })();
 </script>
-\n<script>\n// SolarFlow v16 Smart Leads — UI-only upgrade\n(function(){\n const oldRender=window.render;\n const labels={new:'НОВАЯ',contacted:'СВЯЗАТЬСЯ',measurement:'ЗАМЕР',measurement_done:'ЗАМЕР ГОТОВ',estimate_ready:'СМЕТА',installation:'МОНТАЖ',completed:'ГОТОВО',paid:'ОПЛАЧЕНО',rejected:'ОТКЛОНЕНО'};\n function dueText(l){const d=l.visit_date||l.installation_date;if(!d)return '';return (l.visit_date?'📐 ':'🔧 ')+fmtDate(d)}\n window.smartLeadCard=function(l){\n   const phone=String(l.client?.phone||'').replace(/[^+\\d]/g,'');\n   const city=l.client?.city||'Город не указан',sys=l.system_type||l.object_type||'Объект';\n   const next=(typeof v14NextAction==='function'?v14NextAction(l):'Открыть заявку');\n   return `<div class="smart-lead" data-status="${esc(l.status||'new')}" onclick="openLead('${l.id}')">\n    <div class="smart-lead-top"><div class="grow"><div class="smart-lead-no">${leadNumber(l)}</div><div class="smart-lead-name">${esc(l.client?.full_name||'Без имени')}</div></div><span class="smart-status">${esc(labels[l.status]||l.status_label||l.status||'—')}</span></div>\n    <div class="smart-meta"><span>📍 ${esc(city)}</span><span>☀️ ${esc(sys)}</span>${l.desired_power_kw?`<span>⚡ ${esc(l.desired_power_kw)} кВт</span>`:''}${dueText(l)?`<span>${esc(dueText(l))}</span>`:''}</div>\n    <div class="smart-next"><div class="grow"><small>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</small><b>${esc(next)}</b></div><div class="smart-quick">${phone?`<button onclick="event.stopPropagation();location.href='tel:${phone}'">📞</button>`:''}${l.client?.id?`<button onclick="event.stopPropagation();setView('chat');openChat('${l.client.id}')">💬</button>`:''}<button class="primary" onclick="event.stopPropagation();openLead('${l.id}')">Открыть</button></div></div>\n   </div>`\n }\n window.renderLeadsAttention=function(){\n   const box=document.getElementById('leadsAttention');if(!box)return;const leads=data.leads||[],now=Date.now();\n   const items=[];leads.filter(l=>l.status==='new').slice(0,2).forEach(l=>items.push({l,txt:'Нужно связаться',red:false}));\n   leads.filter(l=>[l.visit_date,l.installation_date].filter(Boolean).some(x=>new Date(x).getTime()<now)&&!['completed','paid','rejected'].includes(l.status)).slice(0,2).forEach(l=>items.push({l,txt:'Просрочено — проверьте дату',red:true}));\n   if(!items.length){box.innerHTML='<div class="smart-attention-title"><b>✓ Всё под контролем</b><span>Срочных действий нет</span></div>';return}\n   box.innerHTML=`<div class="smart-attention-title"><b>⚡ Требует внимания</b><span>${items.length} ${items.length===1?'задача':'задачи'}</span></div><div class="smart-attention-list">${items.map(x=>`<button class="smart-attention-row ${x.red?'red':''}" onclick="openLead('${x.l.id}')"><span class="dot"></span><span class="grow"><b>${leadNumber(x.l)} · ${esc(x.l.client?.full_name||'Клиент')}</b><small>${esc(x.txt)}</small></span><span class="smart-count">›</span></button>`).join('')}</div>`\n }\n window.renderAllLeads=function(){\n   const q=(document.getElementById('search')?.value||'').toLowerCase().trim(),now=Date.now();\n   const arr=(data.leads||[]).filter(l=>{let ok=currentFilter==='all'||l.status===currentFilter||(currentFilter==='measurement'&&['measurement','measurement_done'].includes(l.status))||(currentFilter==='archive'&&['completed','paid','rejected'].includes(l.status));if(currentFilter==='overdue')ok=[l.visit_date,l.installation_date].filter(Boolean).some(x=>new Date(x).getTime()<now&&!['completed','paid','rejected'].includes(l.status));if(currentFilter==='unpaid')ok=Number(l.deal_amount||0)>0&&!['paid','rejected'].includes(l.status);const text=[leadNumber(l),l.request_number,l.client?.full_name,l.client?.phone,l.client?.city,l.address,l.system_type,l.object_type].join(' ').toLowerCase();return ok&&text.includes(q)});\n   const res=document.getElementById('smartResults');if(res)res.textContent=`Найдено: ${arr.length}`;\n   document.getElementById('allCards').innerHTML=arr.map(smartLeadCard).join('')||'<div class="empty"><b>Ничего не найдено</b>Измените поиск или выберите другой этап.</div>';renderLeadsAttention();\n }\n const baseSetView=window.setView;window.setView=function(v){baseSetView(v);if(v==='leads'){setTimeout(()=>{renderAllLeads();renderLeadsAttention()},0)}};\n if(oldRender)window.render=function(){oldRender();renderLeadsAttention()};\n})();\n</script>\n</body></html>
+
+<script>
+// SolarFlow v16 Smart Leads — UI-only upgrade
+(function(){
+ const oldRender=window.render;
+ const labels={new:'НОВАЯ',contacted:'СВЯЗАТЬСЯ',measurement:'ЗАМЕР',measurement_done:'ЗАМЕР ГОТОВ',estimate_ready:'СМЕТА',installation:'МОНТАЖ',completed:'ГОТОВО',paid:'ОПЛАЧЕНО',rejected:'ОТКЛОНЕНО'};
+ function dueText(l){const d=l.visit_date||l.installation_date;if(!d)return '';return (l.visit_date?'📐 ':'🔧 ')+fmtDate(d)}
+ window.smartLeadCard=function(l){
+   const phone=String(l.client?.phone||'').replace(/[^+\\d]/g,'');
+   const city=l.client?.city||'Город не указан',sys=l.system_type||l.object_type||'Объект';
+   const next=(typeof v14NextAction==='function'?v14NextAction(l):'Открыть заявку');
+   return `<div class="smart-lead" data-status="${esc(l.status||'new')}" onclick="openLead('${l.id}')">
+    <div class="smart-lead-top"><div class="grow"><div class="smart-lead-no">${leadNumber(l)}</div><div class="smart-lead-name">${esc(l.client?.full_name||'Без имени')}</div></div><span class="smart-status">${esc(labels[l.status]||l.status_label||l.status||'—')}</span></div>
+    <div class="smart-meta"><span>📍 ${esc(city)}</span><span>☀️ ${esc(sys)}</span>${l.desired_power_kw?`<span>⚡ ${esc(l.desired_power_kw)} кВт</span>`:''}${dueText(l)?`<span>${esc(dueText(l))}</span>`:''}</div>
+    <div class="smart-next"><div class="grow"><small>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</small><b>${esc(next)}</b></div><div class="smart-quick">${phone?`<button onclick="event.stopPropagation();location.href='tel:${phone}'">📞</button>`:''}${l.client?.id?`<button onclick="event.stopPropagation();setView('chat');openChat('${l.client.id}')">💬</button>`:''}<button class="primary" onclick="event.stopPropagation();openLead('${l.id}')">Открыть</button></div></div>
+   </div>`
+ }
+ window.renderLeadsAttention=function(){
+   const box=document.getElementById('leadsAttention');if(!box)return;const leads=data.leads||[],now=Date.now();
+   const items=[];leads.filter(l=>l.status==='new').slice(0,2).forEach(l=>items.push({l,txt:'Нужно связаться',red:false}));
+   leads.filter(l=>[l.visit_date,l.installation_date].filter(Boolean).some(x=>new Date(x).getTime()<now)&&!['completed','paid','rejected'].includes(l.status)).slice(0,2).forEach(l=>items.push({l,txt:'Просрочено — проверьте дату',red:true}));
+   if(!items.length){box.innerHTML='<div class="smart-attention-title"><b>✓ Всё под контролем</b><span>Срочных действий нет</span></div>';return}
+   box.innerHTML=`<div class="smart-attention-title"><b>⚡ Требует внимания</b><span>${items.length} ${items.length===1?'задача':'задачи'}</span></div><div class="smart-attention-list">${items.map(x=>`<button class="smart-attention-row ${x.red?'red':''}" onclick="openLead('${x.l.id}')"><span class="dot"></span><span class="grow"><b>${leadNumber(x.l)} · ${esc(x.l.client?.full_name||'Клиент')}</b><small>${esc(x.txt)}</small></span><span class="smart-count">›</span></button>`).join('')}</div>`
+ }
+ window.renderAllLeads=function(){
+   const q=(document.getElementById('search')?.value||'').toLowerCase().trim(),now=Date.now();
+   const arr=(data.leads||[]).filter(l=>{let ok=currentFilter==='all'||l.status===currentFilter||(currentFilter==='measurement'&&['measurement','measurement_done'].includes(l.status))||(currentFilter==='archive'&&['completed','paid','rejected'].includes(l.status));if(currentFilter==='overdue')ok=[l.visit_date,l.installation_date].filter(Boolean).some(x=>new Date(x).getTime()<now&&!['completed','paid','rejected'].includes(l.status));if(currentFilter==='unpaid')ok=Number(l.deal_amount||0)>0&&!['paid','rejected'].includes(l.status);const text=[leadNumber(l),l.request_number,l.client?.full_name,l.client?.phone,l.client?.city,l.address,l.system_type,l.object_type].join(' ').toLowerCase();return ok&&text.includes(q)});
+   const res=document.getElementById('smartResults');if(res)res.textContent=`Найдено: ${arr.length}`;
+   document.getElementById('allCards').innerHTML=arr.map(smartLeadCard).join('')||'<div class="empty"><b>Ничего не найдено</b>Измените поиск или выберите другой этап.</div>';renderLeadsAttention();
+ }
+ const baseSetView=window.setView;window.setView=function(v){baseSetView(v);if(v==='leads'){setTimeout(()=>{renderAllLeads();renderLeadsAttention()},0)}};
+ if(oldRender)window.render=function(){oldRender();renderLeadsAttention()};
+})();
+</script>
+
+<script>
+// SolarFlow v16.1 — move a lead to any workflow stage
+(function(){
+ const stages=[
+  ['new','🆕 Новая'],['contacted','📞 Связаться'],['measurement','📐 Замер назначен'],
+  ['measurement_done','✅ Замер выполнен'],['estimate_ready','🧾 Смета готова'],
+  ['installation','🔧 Монтаж'],['completed','🏁 Выполнено'],['paid','💰 Оплачено'],['rejected','❌ Отказ']
+ ];
+ window.toggleStageMenu=function(){const el=document.getElementById('stageMoveMenu');if(el)el.hidden=!el.hidden};
+ window.moveLeadToStage=async function(status){
+   if(!selectedLead||status===selectedLead.status)return;
+   const found=stages.find(x=>x[0]===status);
+   if(!confirm(`Перенести ${leadNumber(selectedLead)} на этап «${found?found[1]:status}»?`))return;
+   try{
+     await apiPost({action:'update_status',lead_id:selectedLead.id,status});
+     tg?.HapticFeedback?.notificationOccurred('success');
+     await loadData();
+     const id=selectedLead.id; selectedLead=(data.leads||[]).find(x=>x.id===id)||selectedLead;
+     await openLead(id);
+     toast('Этап заявки изменён');
+   }catch(e){toast(e.message||'Не удалось изменить этап')}
+ };
+ function injectStageMover(){
+   if(!selectedLead)return;
+   const host=document.querySelector('#sheetContent .sheet-actions');
+   if(!host||document.getElementById('stageMoveWrap'))return;
+   const wrap=document.createElement('div');wrap.id='stageMoveWrap';
+   wrap.innerHTML=`<button class="stage-move-btn" onclick="toggleStageMenu()"><span>↔️ Перенести на этап</span><span>⌄</span></button>
+   <div id="stageMoveMenu" class="stage-menu" hidden><div class="stage-menu-title">ВЫБЕРИТЕ ЭТАП</div><div class="stage-grid">${stages.map(([s,t])=>`<button class="stage-option ${s===selectedLead.status?'current':''} ${s==='rejected'?'danger':''}" onclick="moveLeadToStage('${s}')">${t}${s===selectedLead.status?' · ✓':''}</button>`).join('')}</div><div class="stage-menu-note">Можно перейти сразу на любой этап. Текущий этап отмечен ✓.</div></div>`;
+   host.insertAdjacentElement('afterend',wrap);
+ }
+ const oldOpenLead=window.openLead;
+ window.openLead=async function(id){const r=await oldOpenLead(id);setTimeout(injectStageMover,40);return r};
+})();
+</script>
+</body></html>

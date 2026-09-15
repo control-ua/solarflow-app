@@ -1,4 +1,4 @@
-const CACHE_NAME='solarflow-v16-smart-leads-20260915';
+const CACHE_NAME='solarflow-v16-1-stage-menu-20260915';
 const CORE=['./','./index.html','./manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(CORE).catch(()=>{})));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim()});
